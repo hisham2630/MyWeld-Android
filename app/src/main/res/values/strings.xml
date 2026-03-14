@@ -1,0 +1,90 @@
+<resources>
+    <string name="app_name">MyWeld</string>
+    <string name="scan_title">Discover Welders</string>
+    <string name="scan_searching">Searching for MyWeld devices…</string>
+    <string name="scan_no_devices">No devices found. Make sure your welder is powered on.</string>
+    <string name="scan_tap_to_connect">Tap to connect</string>
+    <string name="scan_saved_devices">Saved Devices</string>
+    <string name="scan_nearby_devices">Nearby Devices</string>
+    <string name="scan_pull_to_scan">Pull down to scan</string>
+    <string name="scan_last_seen">Last seen %1$s</string>
+
+    <string name="dashboard_title">Dashboard</string>
+    <string name="dashboard_voltage">Voltage</string>
+    <string name="dashboard_parameters">Parameters</string>
+    <string name="dashboard_status">Status</string>
+    <string name="dashboard_welds">Welds</string>
+    <string name="dashboard_session">Session</string>
+    <string name="dashboard_total">Total</string>
+
+    <string name="param_p1">P1</string>
+    <string name="param_t">T</string>
+    <string name="param_p2">P2</string>
+    <string name="param_s">S</string>
+    <string name="param_unit_ms">ms</string>
+    <string name="param_unit_s">s</string>
+
+    <string name="mode_auto">AUTO</string>
+    <string name="mode_manual">MAN</string>
+
+    <string name="state_idle">IDLE</string>
+    <string name="state_ready">READY</string>
+    <string name="state_charging">CHARGING</string>
+    <string name="state_firing">FIRING</string>
+    <string name="state_error">ERROR</string>
+    <string name="state_low_voltage">LOW VOLTAGE</string>
+    <string name="state_protection">PROTECTION FAULT</string>
+    <string name="state_contact_wait">CONTACT WAIT</string>
+    <string name="state_contact_detected">CONTACT</string>
+
+    <string name="presets_title">Presets</string>
+    <string name="presets_load">Load</string>
+    <string name="presets_save">Save Current</string>
+    <string name="presets_active">Active</string>
+    <string name="presets_factory">Factory</string>
+
+    <string name="settings_title">Settings</string>
+    <string name="settings_device">Device Settings</string>
+    <string name="settings_app">App Settings</string>
+    <string name="settings_ble_name">Device Name</string>
+    <string name="settings_sound">Sound</string>
+    <string name="settings_brightness">Display Brightness</string>
+    <string name="settings_display_theme">Display Theme</string>
+    <string name="settings_app_theme">App Theme</string>
+    <string name="settings_dark_mode">Dark Mode</string>
+    <string name="settings_light_mode">Light Mode</string>
+    <string name="settings_auto_reconnect">Auto Reconnect</string>
+    <string name="settings_saved_devices">Saved Devices</string>
+    <string name="settings_forget_device">Forget Device</string>
+    <string name="settings_factory_reset">Factory Reset</string>
+    <string name="settings_factory_reset_confirm">This will reset ALL device settings to factory defaults. Are you sure?</string>
+    <string name="settings_reset_weld_counter">Reset Weld Counter</string>
+    <string name="settings_firmware_version">Firmware Version</string>
+    <string name="settings_app_version">App Version</string>
+
+    <string name="connection_connected">Connected</string>
+    <string name="connection_connecting">Connecting…</string>
+    <string name="connection_disconnected">Disconnected</string>
+    <string name="connection_reconnecting">Reconnecting…</string>
+    <string name="connection_lost">Connection lost. Tap to reconnect.</string>
+
+    <string name="error_ble_disabled">Bluetooth is disabled. Please enable it to connect.</string>
+    <string name="error_permission_denied">Bluetooth permission is required to scan for devices.</string>
+    <string name="error_param_out_of_range">Value out of range</string>
+    <string name="error_firmware_update">Firmware update required. Current protocol is not supported.</string>
+
+    <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_presets">Presets</string>
+    <string name="nav_settings">Settings</string>
+
+    <string name="about_title">About</string>
+    <string name="about_description">MyWeld Companion App for ESP32 Spot Welder</string>
+    <string name="about_credits">DIY Sport Welder Project</string>
+
+    <string name="action_confirm">Confirm</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_reset">Reset</string>
+    <string name="action_save">Save</string>
+    <string name="action_disconnect">Disconnect</string>
+    <string name="action_retry">Retry</string>
+</resources>

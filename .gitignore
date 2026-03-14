@@ -1,0 +1,26 @@
+*.iml
+.gradle/
+.kotlin/
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+.externalNativeBuild/
+.cxx/
+local.properties
+/app/build
+/app/release
+*.apk
+*.aab
+*.jks
+*.keystore
+
+# Build logs
+build_output.txt
+
+# AI tooling (local only)
+.agent/
+
+# OS
+Thumbs.db
