@@ -18,6 +18,9 @@
         tools:targetApi="s" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
+    <!-- Internet (for GitHub firmware update checks & downloads) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <!-- BLE feature declaration -->
     <uses-feature
         android:name="android.hardware.bluetooth_le"

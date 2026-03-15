@@ -426,6 +426,13 @@ class MyWeldBleManager(
 
     // ── Public API ────────────────────────────────────────────────────────────
 
+    /** Snapshot of status before the most recent optimistic writeParams update.
+     *  Used to revert on GATT failure or firmware NAK. */
+    @Volatile private var preWriteSnapshot: WelderStatus? = null
+
+    /** Active ACK/NAK listener job — cancelled after guard window or on next write. */
+    private var writeResultListenerJob: Job? = null
+
     fun writeParams(params: WeldParams) {
         val chr = paramsCharacteristic
         if (chr == null) {
@@ -433,6 +440,14 @@ class MyWeldBleManager(
             _events.tryEmit(AppEvent.CommandFailed("Parameters saved"))
             return
         }
+
+        // Cancel any previous ACK/NAK listener
+        writeResultListenerJob?.cancel()
+
+        // Snapshot current status BEFORE the optimistic update so we can revert
+        val snapshot = _status.value
+        preWriteSnapshot = snapshot
+
         // Optimistic local update — reflect the change in the UI immediately
         // without waiting for the next periodic STATUS notification from firmware.
         paramsWriteTimestamp = System.currentTimeMillis()
@@ -450,9 +465,57 @@ class MyWeldBleManager(
             theme      = params.theme,
             bleName    = params.bleName.ifBlank { _status.value.bleName },
         )
+
+        // Listen for firmware ACK or NAK on PARAMS_WRITE.
+        // ACK = firmware accepted → clear snapshot, all good.
+        // NAK = firmware rejected → revert optimistic update immediately.
+        // Timeout = guard window expires without response → let STATUS take over.
+        writeResultListenerJob = managerScope.launch {
+            val parentJob = coroutineContext[kotlinx.coroutines.Job]!!
+            // Listen for ACK (success)
+            val ackJob = launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+                _ackFlow.collect { (type, _) ->
+                    if (type == BleProtocol.TYPE_PARAMS_WRITE) {
+                        Log.d(TAG, "PARAMS_WRITE ACK — firmware accepted, keeping optimistic update")
+                        preWriteSnapshot = null  // Confirmed — no revert needed
+                        _events.tryEmit(AppEvent.CommandSent("Parameters saved"))
+                        parentJob.cancel()       // Done listening
+                    }
+                }
+            }
+            // Listen for NAK (rejection)
+            val nakJob = launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+                _nakFlow.collect { (type, errCode) ->
+                    if (type == BleProtocol.TYPE_PARAMS_WRITE) {
+                        Log.w(TAG, "PARAMS_WRITE NAK (error=$errCode) — reverting optimistic update")
+                        preWriteSnapshot?.let { _status.value = it }
+                        preWriteSnapshot = null
+                        paramsWriteTimestamp = 0L  // Clear guard so STATUS packets take effect
+                        val reason = when (errCode) {
+                            BleProtocol.ERR_AUTH_REQUIRED -> "Not authenticated"
+                            BleProtocol.ERR_BUSY -> "Device busy"
+                            BleProtocol.ERR_INVALID_RANGE -> "Invalid parameter"
+                            else -> "Error $errCode"
+                        }
+                        _events.tryEmit(AppEvent.CommandFailed(reason))
+                        parentJob.cancel()       // Done listening
+                    }
+                }
+            }
+            // Timeout: if neither ACK nor NAK arrives within the guard window,
+            // clean up and let the next STATUS packet be authoritative.
+            delay(PARAMS_GUARD_MS)
+            ackJob.cancel()
+            nakJob.cancel()
+            preWriteSnapshot = null
+            Log.d(TAG, "PARAMS_WRITE listener timeout — guard expired")
+        }
+
         writeCharacteristic(chr, BleProtocol.encodeParamsWrite(params), BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
             .done {
-                _events.tryEmit(AppEvent.CommandSent("Parameters saved"))
+                // GATT delivery confirmed — but this does NOT mean the firmware accepted it.
+                // The firmware sends ACK/NAK as separate BLE notifications, which are handled
+                // by the writeResultListenerJob above. Do NOT emit success here — wait for ACK.
                 // Re-read params from firmware to confirm the stored name
                 requestParams()
                 // If the name changed, update the saved device record so the device list stays in sync
@@ -469,7 +532,14 @@ class MyWeldBleManager(
                     }
                 }
             }
-            .fail { _, _ -> _events.tryEmit(AppEvent.CommandFailed("Parameters saved")) }
+            .fail { _, status ->
+                Log.w(TAG, "PARAMS_WRITE GATT failure (status=$status) — reverting optimistic update")
+                preWriteSnapshot?.let { _status.value = it }
+                preWriteSnapshot = null
+                paramsWriteTimestamp = 0L  // Clear guard so STATUS packets take effect
+                writeResultListenerJob?.cancel()
+                _events.tryEmit(AppEvent.CommandFailed("Write failed"))
+            }
             .enqueue()
     }
 

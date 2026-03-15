@@ -53,6 +53,9 @@ class FirmwareViewModel(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private val _checkResultMessage = MutableStateFlow<String?>(null)
+    val checkResultMessage: StateFlow<String?> = _checkResultMessage.asStateFlow()
+
     /** Whether the firmware supports OTA (has the OTA characteristic). */
     val isOtaSupported: Boolean get() = bleManager.isOtaSupported
 
@@ -76,6 +79,7 @@ class FirmwareViewModel(
         viewModelScope.launch {
             _isCheckingRelease.value = true
             _errorMessage.value = null
+            _checkResultMessage.value = null
 
             try {
                 val release = releaseChecker.getLatestReleaseWithBinary()
@@ -85,11 +89,19 @@ class FirmwareViewModel(
                     Log.i(TAG, "Latest release: ${release.versionString()} (${release.tagName})")
                     if (release.downloadUrl != null) {
                         Log.i(TAG, "Binary available: ${release.downloadUrl}")
+                        val isNewer = release.isNewerThan(deviceFwMajor, deviceFwMinor, 0)
+                        _checkResultMessage.value = if (isNewer) {
+                            "New firmware v${release.versionString()} available!"
+                        } else {
+                            "Firmware is up to date (v${release.versionString()})"
+                        }
                     } else {
                         Log.w(TAG, "No .bin asset found in release")
+                        _checkResultMessage.value = "Release found but no firmware binary attached"
                     }
                 } else {
                     Log.i(TAG, "No releases found")
+                    _checkResultMessage.value = "No releases found on GitHub"
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to check for updates", e)
@@ -195,5 +207,10 @@ class FirmwareViewModel(
     /** Clear the error message. */
     fun clearError() {
         _errorMessage.value = null
+    }
+
+    /** Clear the check result message (after Snackbar shown). */
+    fun clearCheckResult() {
+        _checkResultMessage.value = null
     }
 }
