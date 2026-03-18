@@ -476,7 +476,7 @@ fun DashboardScreen(
                     step = WeldParams.S_STEP,
                     onIncrement = { viewModel.adjustS(WeldParams.S_STEP) },
                     onDecrement = { viewModel.adjustS(-WeldParams.S_STEP) },
-                    enabled = !paramsLocked,
+                    enabled = true,  // S delay is a user preference, always editable
                     modifier = Modifier.fillMaxWidth(),
                 )
             }

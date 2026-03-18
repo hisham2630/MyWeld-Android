@@ -86,6 +86,7 @@ fun SettingsScreen(
     var confirmPinInput by remember { mutableStateOf("") }
     var pinMismatch by remember { mutableStateOf(false) }
     var showCalibrationDialog by remember { mutableStateOf(false) }
+    var showMaxVoltageDialog by remember { mutableStateOf(false) }
 
     if (showRebootDialog) {
         AlertDialog(
@@ -362,6 +363,133 @@ fun SettingsScreen(
         )
     }
 
+    // ── Max Supercap Voltage dialog (all builds) ─────────────────────────────
+    if (showMaxVoltageDialog) {
+        var sliderValue by remember { mutableFloatStateOf(status.maxSupercapVoltage) }
+
+        AlertDialog(
+            onDismissRequest = { showMaxVoltageDialog = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(20.dp),
+            title = {
+                Text(
+                    "Max Supercap Voltage",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                )
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(
+                        text = "Set the maximum charge voltage for your supercap bank. " +
+                            "All thresholds (full, warning, block, contact) are derived automatically.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    // Current value display
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(
+                                "${"%.2f".format(sliderValue)} V",
+                                style = MaterialTheme.typography.headlineMedium.copy(
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                            Text(
+                                "${(sliderValue * 1000).toInt()} mV",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                            )
+                        }
+                    }
+
+                    // Slider
+                    Slider(
+                        value = sliderValue,
+                        onValueChange = { raw ->
+                            // Snap to 10mV increments (0.01V step)
+                            sliderValue = (raw * 100).roundToInt() / 100f
+                        },
+                        valueRange = 4.0f..12.0f,
+                        steps = 799, // (12.0 - 4.0) / 0.01 - 1 = 799
+                        colors = SliderDefaults.colors(
+                            thumbColor = MaterialTheme.colorScheme.primary,
+                            activeTrackColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+
+                    // Range labels
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            "4.0 V",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            "12.0 V",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    // Derived thresholds preview
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(8.dp),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(
+                                "Derived thresholds:",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            AdcDebugRow("Full (charged)", "${"%.2f".format(sliderValue - 0.2f)} V")
+                            AdcDebugRow("Low warning", "${"%.2f".format(sliderValue * 0.70f)} V")
+                            AdcDebugRow("Block (too low)", "${"%.2f".format(sliderValue * 0.50f)} V")
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.setMaxSupercapVoltage(sliderValue)
+                        showMaxVoltageDialog = false
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showMaxVoltageDialog = false }) {
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            },
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -627,6 +755,35 @@ fun SettingsScreen(
                     )
                 },
                 onClick = onNavigateToFirmwareUpdate,
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // =============================================================
+        // Machine Configuration Section (all builds)
+        // =============================================================
+        SectionHeader("Machine Configuration")
+
+        SettingsCard {
+            SettingsRow(
+                icon = {
+                    Icon(
+                        imageVector = Icons.Filled.Build,
+                        contentDescription = "Voltage Config",
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                },
+                title = "Max Supercap Voltage",
+                subtitle = "Current: ${status.maxSupercapVoltageFormatted}",
+                trailing = {
+                    Button(
+                        onClick = { showMaxVoltageDialog = true },
+                        shape = RoundedCornerShape(10.dp),
+                    ) {
+                        Text("Configure")
+                    }
+                },
             )
         }
 

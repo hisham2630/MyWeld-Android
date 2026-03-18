@@ -33,6 +33,7 @@ data class WelderStatus(
     val rawProtectionMv: Int = 0,
     val calFactorVx1000: Int = 1000,
     val calFactorPx1000: Int = 1000,
+    val maxSupercapMv: Int = 5700,  // Configured max supercap voltage (mV), default 5.7V
 ) {
     /** Supercap voltage in Volts */
     val supercapVoltage: Float get() = supercapVoltageMv / 1000f
@@ -64,4 +65,10 @@ data class WelderStatus(
 
     /** Whether calibration factors are non-default (device has been calibrated) */
     val isCalibrated: Boolean get() = calFactorVx1000 != 1000 || calFactorPx1000 != 1000
+
+    /** Configured max supercap voltage in Volts */
+    val maxSupercapVoltage: Float get() = maxSupercapMv / 1000f
+
+    /** Formatted max supercap voltage string (e.g. "5.70 V") */
+    val maxSupercapVoltageFormatted: String get() = "${"%,.2f".format(maxSupercapVoltage)} V"
 }

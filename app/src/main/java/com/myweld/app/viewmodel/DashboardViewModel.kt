@@ -172,7 +172,7 @@ class DashboardViewModel(
     }
 
     fun adjustS(delta: Float) {
-        if (paramsLocked.value) return
+        // S delay is a device-level preference, NOT per-preset — always editable
         val current = status.value
         val newVal = (current.sSeconds + delta).coerceIn(WeldParams.S_MIN, WeldParams.S_MAX)
         sendParamUpdate(current.copy(sSeconds = newVal))

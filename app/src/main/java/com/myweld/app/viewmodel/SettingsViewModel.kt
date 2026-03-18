@@ -131,18 +131,29 @@ class SettingsViewModel(
         if (pin.length == 4) welderRepository.changePin(pin)
     }
 
-    // ── ADC Calibration (debug builds only) ──────────────────────────────────
+    // ── ADC Calibration ──────────────────────────────────────────────────────
 
     /**
      * Calibrate an ADC channel using the user's multimeter reading.
-     * Only available in debug builds — calibration is a one-time factory step.
-     * @param channel 0 = supercap, 1 = protection rail
-     * @param referenceVolts the user's multimeter reading (e.g. 4.73)
+     * Channels 0/1 are debug-only (factory ADC calibration).
+     * Channel 2 is user-facing (max supercap voltage setting).
+     * @param channel 0 = supercap ADC, 1 = protection ADC, 2 = max supercap voltage
+     * @param referenceVolts voltage in V (multimeter reading or target max voltage)
      */
     fun calibrateAdc(channel: Int, referenceVolts: Float) {
-        if (!BuildConfig.DEBUG) return
+        // Channels 0/1 (ADC cal) are debug-only; channel 2 (max voltage) is user-facing
+        if (channel < 2 && !BuildConfig.DEBUG) return
         val referenceMv = (referenceVolts * 1000).toInt().coerceIn(100, 20000)
         welderRepository.calibrateAdc(channel, referenceMv)
+    }
+
+    /**
+     * Set max supercap voltage. Convenience wrapper for channel 2 calibration.
+     * Range: 4.0–12.0V (matches firmware SUPERCAP_V_MIN/MAX).
+     */
+    fun setMaxSupercapVoltage(volts: Float) {
+        val clamped = volts.coerceIn(4.0f, 12.0f)
+        calibrateAdc(2, clamped)
     }
 
     fun disconnect() {

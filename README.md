@@ -29,10 +29,12 @@
 **MyWeld** is an Android app that connects to the ESP32-based spot welder via Bluetooth Low Energy (BLE). Once paired and authenticated, you can:
 
 - Monitor capacitor charge, weld state, and pulse parameters in real time
-- Adjust P1 / T / P2 pulse timings and AUTO/MAN mode without touching the device
+- Adjust **P1 / T / P2 / P3 / P4** pulse timings and AUTO/MAN mode without touching the device
+- **Configure max supercapacitor voltage** (4.0–12.0 V) for different capacitor bank setups
 - Load and save up to **20 presets** (7 factory + 13 user-defined)
 - View session and lifetime weld counters
-- Configure device settings (display name, PIN, brightness, sound)
+- **Calibrate ADC channels** with per-channel correction factors
+- Configure device settings (display name, PIN, brightness, sound, volume)
 - **OTA firmware update** — check for new releases on GitHub and flash over BLE
 
 ---
@@ -48,9 +50,9 @@ On first connection (and on demand), a PIN entry screen is shown. The PIN is ver
 ### 📊 Dashboard Screen
 Live dashboard showing:
 - **Supercapacitor voltage bar** with color-coded charge level (green → yellow → red)
-- **Charge percentage**
+- **Charge percentage** (derived from configurable max voltage)
 - **Weld state** badge (IDLE / ARMED / FIRING / BLOCKED / ERROR)
-- **P1 / T / P2** pulse parameters with `+` / `−` controls
+- **P1 / T / P2 / P3 / P4** pulse parameters with `+` / `−` controls
 - **AUTO / MAN** mode toggle
 - **Session** and **total** weld counters (with reset buttons)
 - **Active preset** indicator
@@ -58,7 +60,7 @@ Live dashboard showing:
 ### 🗂️ Presets Screen
 Browse, load, and save 20 preset slots (7 factory presets + 13 user-custom). Each preset stores:
 - Name (up to 20 characters)
-- P1, T, P2 durations
+- P1, T, P2, P3, P4 durations
 - S delay (AUTO mode)
 - AUTO/MAN mode flag
 
@@ -72,7 +74,10 @@ Check GitHub Releases for new firmware versions. When an update is available:
 ### ⚙️ Settings Screen
 - Change BLE display name (updates firmware over BLE)
 - Change PIN
-- Toggle sound, select theme
+- Toggle sound, adjust **volume** (0–100%)
+- Select theme (dark / light)
+- **Configure max supercapacitor voltage** (4.0–12.0 V, stored in calibration partition)
+- **ADC calibration** — per-channel correction factors for voltage readings
 - Trigger factory reset
 
 ---
@@ -168,7 +173,7 @@ CRC = XOR( TYPE, LEN, PAYLOAD[0..N] )
 All multi-byte values: little-endian
 ```
 
-### Status Packet (0x01) — 32 bytes, sent every ~500 ms via NOTIFY
+### Status Packet (0x01) — 46 bytes, sent every ~500 ms via NOTIFY
 
 | Offset | Field | Type | Notes |
 |--------|-------|------|-------|
@@ -180,15 +185,25 @@ All multi-byte values: little-endian
 | 7 | `active_preset` | u8 | 0–19 (0xFF = user-defined) |
 | 8 | `session_welds` | u32 | Session counter |
 | 12 | `total_welds` | u32 | Lifetime counter |
+| 16 | `ble_connected` | u8 | 1 if BLE connected |
 | 17 | `sound_on` | u8 | |
 | 18 | `theme` | u8 | 0=dark, 1=light |
 | 19 | `error_code` | u8 | 0=none |
 | 20 | `p1_x10` | u16 | P1 × 10 (e.g. 50 = 5.0 ms) |
 | 22 | `t_x10` | u16 | T × 10 |
 | 24 | `p2_x10` | u16 | P2 × 10 |
-| 26 | `s_x10` | u16 | S × 10 (e.g. 5 = 0.5 s) |
-| 28 | `fw_major` | u8 | Firmware major version |
-| 29 | `fw_minor` | u8 | Firmware minor version |
+| 26 | `p3_x10` | u16 | P3 × 10 (0 = disabled) |
+| 28 | `p4_x10` | u16 | P4 × 10 (0 = disabled) |
+| 30 | `s_x10` | u16 | S × 10 (e.g. 5 = 0.5 s) |
+| 32 | `fw_major` | u8 | Firmware major version |
+| 33 | `fw_minor` | u8 | Firmware minor version |
+| 34 | `volume` | u8 | Master volume 0–100% |
+| 35 | `auth_lockout_sec` | u8 | Remaining lockout seconds |
+| 36 | `raw_supercap_mv` | u16 | Uncalibrated supercap voltage |
+| 38 | `raw_protection_mv` | u16 | Uncalibrated protection voltage |
+| 40 | `cal_factor_v_x1000` | u16 | Supercap cal factor × 1000 |
+| 42 | `cal_factor_p_x1000` | u16 | Protection cal factor × 1000 |
+| 44 | `max_supercap_mv` | u16 | Configured max supercap voltage (mV) |
 
 ### Weld States
 

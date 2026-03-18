@@ -141,9 +141,10 @@ object BleProtocol {
 
     /**
      * Parse STATUS packet (0x01) payload → WelderStatus.
-     * Supports 36-byte (legacy without P3/P4) and 44-byte (full with P3/P4 + calibration) packets.
+     * Supports 36-byte (legacy without P3/P4), 44-byte (with calibration),
+     * and 46-byte (full with max_supercap_mv) packets.
      *
-     * Offset map (44-byte ble_status_packet_t):
+     * Offset map (46-byte ble_status_packet_t):
      *   [0–1]  supercap_mv    [2–3]  protection_mv  [4] state  [5] charge%
      *   [6]    auto_mode      [7]    active_preset
      *   [8–11] session_welds  [12–15] total_welds
@@ -153,6 +154,7 @@ object BleProtocol {
      *   [32] fw_major  [33] fw_minor  [34] volume  [35] auth_lockout_sec
      *   [36–37] raw_supercap_mv  [38–39] raw_protection_mv
      *   [40–41] cal_factor_v_x1000  [42–43] cal_factor_p_x1000
+     *   [44–45] max_supercap_mv
      */
     fun decodeStatus(payload: ByteArray): WelderStatus? {
         if (payload.size < 36) return null
@@ -163,6 +165,7 @@ object BleProtocol {
         val rawProtectionMv = if (payload.size >= 44) buf.getShort(38).toInt() and 0xFFFF else 0
         val calFactorV = if (payload.size >= 44) buf.getShort(40).toInt() and 0xFFFF else 1000
         val calFactorP = if (payload.size >= 44) buf.getShort(42).toInt() and 0xFFFF else 1000
+        val maxSupercapMv = if (payload.size >= 46) buf.getShort(44).toInt() and 0xFFFF else 5700
 
         return WelderStatus(
             supercapVoltageMv = buf.getShort(0).toInt() and 0xFFFF,
@@ -190,6 +193,7 @@ object BleProtocol {
             rawProtectionMv = rawProtectionMv,
             calFactorVx1000 = calFactorV,
             calFactorPx1000 = calFactorP,
+            maxSupercapMv = maxSupercapMv,
         )
     }
 
