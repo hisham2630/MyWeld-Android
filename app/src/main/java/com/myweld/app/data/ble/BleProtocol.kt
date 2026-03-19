@@ -72,6 +72,7 @@ object BleProtocol {
     const val OTA_STATUS_TOO_LARGE = 0x05
     const val OTA_STATUS_CRC_FAIL = 0x06
     const val OTA_STATUS_ABORT = 0x07
+    const val OTA_STATUS_HW_MISMATCH = 0x08
 
     // OTA result codes (in OTA_RESULT)
     const val OTA_RESULT_SUCCESS = 0x00
@@ -453,7 +454,11 @@ object BleProtocol {
 
     /**
      * Encode OTA_BEGIN packet (0x10).
-     * Payload: [total_size_u32_LE][sha256_32B][fw_major][fw_minor][fw_patch] = 39 bytes.
+     * Payload: [total_size_u32_LE][sha256_32B][fw_major][fw_minor][fw_patch][hw_compat_id_u32_LE]
+     *        = 43 bytes (protocol V5+).
+     *
+     * @param hwCompatId Target hardware compatibility ID. Use 0 to skip check
+     *                   (backwards-compatible with pre-V5 firmware).
      */
     fun encodeOtaBegin(
         totalSize: Int,
@@ -461,14 +466,16 @@ object BleProtocol {
         fwMajor: Int,
         fwMinor: Int,
         fwPatch: Int,
+        hwCompatId: Long = 0L,
     ): ByteArray {
         require(sha256.size == 32) { "SHA-256 must be 32 bytes" }
-        val payload = ByteBuffer.allocate(39).order(ByteOrder.LITTLE_ENDIAN).apply {
-            putInt(totalSize)          // 0–3
-            put(sha256)                // 4–35
-            put(fwMajor.toByte())      // 36
-            put(fwMinor.toByte())      // 37
-            put(fwPatch.toByte())      // 38
+        val payload = ByteBuffer.allocate(43).order(ByteOrder.LITTLE_ENDIAN).apply {
+            putInt(totalSize)              // 0–3
+            put(sha256)                    // 4–35
+            put(fwMajor.toByte())          // 36
+            put(fwMinor.toByte())          // 37
+            put(fwPatch.toByte())          // 38
+            putInt(hwCompatId.toInt())     // 39–42
         }
         return buildPacket(TYPE_OTA_BEGIN, payload.array())
     }
@@ -518,6 +525,30 @@ object BleProtocol {
     fun decodeOtaResult(payload: ByteArray): OtaResult? {
         if (payload.isEmpty()) return null
         return OtaResult(result = payload[0].toInt() and 0xFF)
+    }
+
+    /**
+     * Decode VERSION_RESPONSE payload (0x09) — 19 bytes (protocol V5+).
+     *
+     * Layout (ble_version_packet_t):
+     *   [0] major  [1] minor  [2] patch  [3] reserved
+     *   [4–11] build_date  [12] board_variant  [13] display_type
+     *   [14] audio_type  [15–18] hw_compat_id (u32 LE)
+     *
+     * Falls back gracefully for pre-V5 firmware that sends shorter packets.
+     */
+    fun decodeVersionResponse(payload: ByteArray): VersionInfo? {
+        if (payload.size < 4) return null
+        val buf = ByteBuffer.wrap(payload).order(ByteOrder.LITTLE_ENDIAN)
+        return VersionInfo(
+            major = buf.get(0).toInt() and 0xFF,
+            minor = buf.get(1).toInt() and 0xFF,
+            patch = buf.get(2).toInt() and 0xFF,
+            boardVariant = if (payload.size >= 13) buf.get(12).toInt() and 0xFF else 0,
+            displayType  = if (payload.size >= 14) buf.get(13).toInt() and 0xFF else 0,
+            audioType    = if (payload.size >= 15) buf.get(14).toInt() and 0xFF else 0,
+            hwCompatId   = if (payload.size >= 19) buf.getInt(15).toLong() and 0xFFFFFFFFL else 0L,
+        )
     }
 
     // ========================================================================

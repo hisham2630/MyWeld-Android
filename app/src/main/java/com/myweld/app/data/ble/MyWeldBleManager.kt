@@ -93,6 +93,10 @@ class MyWeldBleManager(
     private val _presets = MutableStateFlow<List<WeldPreset>>(emptyList())
     val presets: StateFlow<List<WeldPreset>> = _presets.asStateFlow()
 
+    /** Decoded VERSION_RESPONSE from firmware — includes hw_compat_id for variant checking. */
+    private val _versionInfo = MutableStateFlow<VersionInfo?>(null)
+    val versionInfo: StateFlow<VersionInfo?> = _versionInfo.asStateFlow()
+
     /** Page-assembly buffers for the paginated PRESET_LIST_RESP protocol. */
     private val _pendingPresets = Array<WeldPreset?>(WeldPreset.MAX_PRESETS) { null }
     private var _pendingPagesReceived = 0
@@ -205,6 +209,7 @@ class MyWeldBleManager(
                         _events.tryEmit(AppEvent.AuthSuccess)
                         requestParams()
                         requestPresetList()
+                        requestVersion()
                     }
                     else -> {
                         // Stored PIN is wrong — clear it and ask user
@@ -371,7 +376,13 @@ class MyWeldBleManager(
             }
 
             BleProtocol.TYPE_VERSION_RESPONSE -> {
-                Log.d(TAG, "VERSION response received (${packet.payload.size} bytes)")
+                val ver = BleProtocol.decodeVersionResponse(packet.payload)
+                if (ver != null) {
+                    _versionInfo.value = ver
+                    Log.i(TAG, "VERSION: ${ver.versionString}, variant=${ver.variantSlug}, hwCompatId=0x${ver.hwCompatId.toString(16)}")
+                } else {
+                    Log.w(TAG, "Failed to decode VERSION_RESPONSE (${packet.payload.size} bytes)")
+                }
             }
 
             BleProtocol.TYPE_PRESET_LIST_RESP -> {
@@ -617,6 +628,7 @@ class MyWeldBleManager(
                     _events.tryEmit(AppEvent.AuthSuccess)
                     requestParams()
                     requestPresetList()
+                    requestVersion()
                 }
                 false -> {
                     Log.w(TAG, "PIN auth failed (wrong PIN)")

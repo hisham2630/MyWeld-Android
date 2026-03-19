@@ -44,3 +44,27 @@ enum class OtaState {
     ERROR,          // OTA failed
     ABORTED,        // User cancelled
 }
+
+/**
+ * Decoded VERSION_RESPONSE (0x09) from firmware.
+ * Extended in protocol V5+ to include hardware variant fields.
+ */
+data class VersionInfo(
+    val major: Int,
+    val minor: Int,
+    val patch: Int,
+    val boardVariant: Int = 0,   // 0=unknown, 1=JC3248W535, 2=DevKit
+    val displayType: Int = 0,    // 0=unknown, 1=QSPI, 2=Nextion, 3=LCD2004
+    val audioType: Int = 0,      // 0=unknown, 1=I2S, 2=Buzzer
+    val hwCompatId: Long = 0L,   // Hardware compatibility ID (0 = pre-V5 firmware)
+) {
+    val versionString get() = "$major.$minor.$patch"
+
+    /** Human-readable variant slug matching firmware HW_VARIANT_SLUG */
+    val variantSlug: String get() = when {
+        boardVariant == 1 -> "jc3248w535"
+        boardVariant == 2 && displayType == 2 -> "devkit-nextion"
+        boardVariant == 2 && displayType == 3 -> "devkit-lcd2004"
+        else -> "unknown"
+    }
+}

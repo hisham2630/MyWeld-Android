@@ -65,6 +65,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.myweld.app.data.ble.OtaState
 import com.myweld.app.viewmodel.FirmwareViewModel
 import kotlinx.coroutines.launch
+import androidx.compose.material.icons.filled.Memory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,6 +80,7 @@ fun FirmwareUpdateScreen(
     val isDownloading by viewModel.isDownloading.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
     val checkResultMessage by viewModel.checkResultMessage.collectAsStateWithLifecycle()
+    val versionInfo by viewModel.versionInfo.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -249,7 +251,7 @@ fun FirmwareUpdateScreen(
                         modifier = Modifier.size(36.dp),
                     )
                     Spacer(modifier = Modifier.width(16.dp))
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Current Firmware",
                             style = MaterialTheme.typography.labelMedium,
@@ -262,6 +264,24 @@ fun FirmwareUpdateScreen(
                             ),
                             color = MaterialTheme.colorScheme.onSurface,
                         )
+                        // ── Device Variant Info ──
+                        if (versionInfo != null && versionInfo!!.hwCompatId != 0L) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Filled.Memory,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(14.dp),
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = viewModel.deviceVariantName,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -542,7 +562,11 @@ fun FirmwareUpdateScreen(
                             }
                         } else if (latestRelease != null) {
                             val release = latestRelease!!
-                            val isNewer = release.isNewerThan(viewModel.deviceFwMajor, viewModel.deviceFwMinor, 0)
+                            val isNewer = release.isNewerThan(
+                                viewModel.deviceFwMajor,
+                                viewModel.deviceFwMinor,
+                                viewModel.deviceFwPatch,
+                            )
 
                             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(
@@ -552,6 +576,33 @@ fun FirmwareUpdateScreen(
                                     else MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontWeight = if (isNewer) FontWeight.Bold else FontWeight.Normal,
                                 )
+
+                                // Show variant match info
+                                if (release.variantSlug != null) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .background(
+                                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                                                RoundedCornerShape(6.dp),
+                                            )
+                                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                                    ) {
+                                        Icon(
+                                            Icons.Filled.CheckCircle,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(14.dp),
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "Matched for ${release.variantSlug}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
+                                }
+
                                 if (release.downloadUrl != null) {
                                     if (isNewer) {
                                         Text(
@@ -567,11 +618,40 @@ fun FirmwareUpdateScreen(
                                         )
                                     }
                                 } else {
-                                    Text(
-                                        text = "No binary file found in this release.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error,
-                                    )
+                                    // No binary for this variant
+                                    if (release.isMultiVariant) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(
+                                                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+                                                    RoundedCornerShape(8.dp),
+                                                )
+                                                .padding(10.dp),
+                                        ) {
+                                            Icon(
+                                                Icons.Filled.Warning,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.error,
+                                                modifier = Modifier.size(18.dp),
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "No compatible binary for your device " +
+                                                    "(${viewModel.deviceVariantName}). " +
+                                                    "Available: ${release.allAssets.keys.filter { it != "_generic" }.joinToString(", ")}.",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.error,
+                                            )
+                                        }
+                                    } else {
+                                        Text(
+                                            text = "No binary file found in this release.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.error,
+                                        )
+                                    }
                                 }
                             }
 

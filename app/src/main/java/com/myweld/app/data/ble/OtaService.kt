@@ -44,6 +44,7 @@ class OtaService(private val bleManager: MyWeldBleManager) {
      * @param fwMajor      New firmware version major (for OTA_BEGIN header)
      * @param fwMinor      New firmware version minor
      * @param fwPatch      New firmware version patch
+     * @param hwCompatId   Target hardware compatibility ID (0 = skip check)
      */
     fun startOta(
         scope: CoroutineScope,
@@ -52,6 +53,7 @@ class OtaService(private val bleManager: MyWeldBleManager) {
         fwMajor: Int = 0,
         fwMinor: Int = 0,
         fwPatch: Int = 0,
+        hwCompatId: Long = 0L,
     ) {
         if (otaJob?.isActive == true) {
             Log.w(TAG, "OTA already in progress")
@@ -61,7 +63,7 @@ class OtaService(private val bleManager: MyWeldBleManager) {
 
         otaJob = scope.launch(Dispatchers.IO) {
             try {
-                performOta(inputStream, totalSize, fwMajor, fwMinor, fwPatch)
+                performOta(inputStream, totalSize, fwMajor, fwMinor, fwPatch, hwCompatId)
             } catch (e: CancellationException) {
                 updateProgress(OtaState.ABORTED, errorMessage = "Cancelled")
                 sendAbort()
@@ -97,6 +99,7 @@ class OtaService(private val bleManager: MyWeldBleManager) {
         fwMajor: Int,
         fwMinor: Int,
         fwPatch: Int,
+        hwCompatId: Long = 0L,
     ) {
         // ── Step 1: Read firmware binary ──────────────────────────────────────
         updateProgress(OtaState.PREPARING)
@@ -116,7 +119,7 @@ class OtaService(private val bleManager: MyWeldBleManager) {
         updateProgress(OtaState.SENDING_BEGIN)
         Log.i(TAG, "Sending OTA_BEGIN (size=$totalSize, version=$fwMajor.$fwMinor.$fwPatch)")
 
-        val beginPacket = BleProtocol.encodeOtaBegin(totalSize, sha256, fwMajor, fwMinor, fwPatch)
+        val beginPacket = BleProtocol.encodeOtaBegin(totalSize, sha256, fwMajor, fwMinor, fwPatch, hwCompatId)
         val beginAck = sendAndWaitForAck(beginPacket)
 
         if (beginAck == null || !beginAck.isOk) {
@@ -273,6 +276,7 @@ class OtaService(private val bleManager: MyWeldBleManager) {
         BleProtocol.OTA_STATUS_TOO_LARGE -> "Firmware too large"
         BleProtocol.OTA_STATUS_CRC_FAIL -> "Checksum error"
         BleProtocol.OTA_STATUS_ABORT -> "Aborted"
+        BleProtocol.OTA_STATUS_HW_MISMATCH -> "Hardware variant mismatch — wrong firmware for this device"
         else -> "Unknown (0x${status.toString(16)})"
     }
 }
