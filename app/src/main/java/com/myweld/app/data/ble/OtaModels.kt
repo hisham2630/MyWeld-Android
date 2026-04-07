@@ -65,6 +65,8 @@ data class VersionInfo(
         boardVariant == 1 -> "jc3248w535"
         boardVariant == 2 && displayType == 2 -> "devkit-nextion"
         boardVariant == 2 && displayType == 3 -> "devkit-lcd2004"
+        boardVariant == 3 && displayType == 2 -> "goouuu-nextion"
+        boardVariant == 3 && displayType == 3 -> "goouuu-lcd2004"
         else -> "unknown"
     }
 }

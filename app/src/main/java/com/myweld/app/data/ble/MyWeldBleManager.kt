@@ -43,6 +43,8 @@ class MyWeldBleManager(
         private const val MTU_SIZE = 247
         private const val RECONNECT_DELAY_INITIAL_MS = 1_500L
         private const val RECONNECT_DELAY_MAX_MS = 30_000L
+        private const val MAX_RECONNECT_ATTEMPTS = 20
+        private const val MAX_RECEIVE_BUFFER = 2048
     }
 
     private var statusCharacteristic: BluetoothGattCharacteristic? = null
@@ -193,7 +195,7 @@ class MyWeldBleManager(
                     }
                 }
 
-                sendPacket(BleProtocol.encodeCmdAuth(storedPin), label = null)
+                sendPacket(BleProtocol.encodeCmdAuth(storedPin.toCharArray()), label = null)
 
                 val ack = try {
                     withTimeoutOrNull(4000L) { autoDeferred.await() }
@@ -259,6 +261,10 @@ class MyWeldBleManager(
             var attempt = 1
 
             while (autoReconnectEnabled && !userDisconnected) {
+                if (attempt > MAX_RECONNECT_ATTEMPTS) {
+                    Log.w(TAG, "Auto-reconnect gave up after $MAX_RECONNECT_ATTEMPTS attempts")
+                    break
+                }
                 val device = lastDevice ?: break
                 Log.i(TAG, "Auto-reconnect attempt #$attempt to ${device.address} (waiting ${delayMs}ms first)")
                 delay(delayMs)
@@ -308,6 +314,14 @@ class MyWeldBleManager(
         }
 
         receiveBuffer += bytes
+
+        // Guard: cap buffer size to prevent unbounded growth from corrupt data
+        if (receiveBuffer.size > MAX_RECEIVE_BUFFER) {
+            Log.w(TAG, "Receive buffer exceeded ${MAX_RECEIVE_BUFFER} bytes — resetting")
+            receiveBuffer = byteArrayOf()
+            return
+        }
+
         processBuffer()
     }
 
@@ -611,7 +625,7 @@ class MyWeldBleManager(
             }
 
             // Collectors are now subscribed — safe to send
-            sendPacket(BleProtocol.encodeCmdAuth(pin), label = null)
+            sendPacket(BleProtocol.encodeCmdAuth(pin.toCharArray()), label = null)
 
             val authResult = try {
                 withTimeoutOrNull(4000L) { response.await() }
@@ -645,7 +659,7 @@ class MyWeldBleManager(
     }
 
     fun changePin(newPin: String) {
-        sendPacket(BleProtocol.encodeCmdChangePin(newPin), label = "PIN updated")
+        sendPacket(BleProtocol.encodeCmdChangePin(newPin.toCharArray()), label = "PIN updated")
     }
 
     fun factoryReset() {

@@ -404,8 +404,13 @@ fun ScanScreen(
                         name = device.name,
                         macAddress = device.macAddress,
                         onConnect = {
-                            bluetoothAdapter?.getRemoteDevice(device.macAddress)?.let { btDevice ->
-                                viewModel.connectToDevice(btDevice)
+                            if (!isBluetoothEnabled) {
+                                val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+                                enableBtLauncher.launch(enableBtIntent)
+                            } else {
+                                bluetoothAdapter?.getRemoteDevice(device.macAddress)?.let { btDevice ->
+                                    viewModel.connectToDevice(btDevice)
+                                }
                             }
                         },
                         onForget = { viewModel.forgetDevice(device.macAddress) },

@@ -91,6 +91,8 @@ class FirmwareViewModel(
                 "jc3248w535" -> "JC3248W535 (QSPI TFT)"
                 "devkit-nextion" -> "DevKit + Nextion"
                 "devkit-lcd2004" -> "DevKit + LCD 2004"
+                "goouuu-nextion" -> "GOOUUU CAM + Nextion"
+                "goouuu-lcd2004" -> "GOOUUU CAM + LCD 2004"
                 else -> "Unknown (0x${vi.hwCompatId.toString(16)})"
             }
         }

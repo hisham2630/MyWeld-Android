@@ -357,26 +357,40 @@ object BleProtocol {
     /**
      * Encode PIN authentication command.
      * Payload: [CMD_AUTH, pin[4 ASCII digits], 0x00] = 6 bytes total.
+     *
+     * Accepts CharArray (not String) so the caller can zero sensitive data.
+     * The pinChars array is zeroed after encoding.
      */
-    fun encodeCmdAuth(pin: String): ByteArray {
-        val pinBytes = ByteArray(5) // 4 digits + null terminator
-        pin.take(4).forEachIndexed { i, c -> pinBytes[i] = c.code.toByte() }
-        val payload = ByteArray(6)
-        payload[0] = CMD_AUTH
-        pinBytes.copyInto(payload, 1)
-        return buildPacket(TYPE_CMD, payload)
+    fun encodeCmdAuth(pinChars: CharArray): ByteArray {
+        try {
+            val pinBytes = ByteArray(5) // 4 digits + null terminator
+            pinChars.take(4).forEachIndexed { i, c -> pinBytes[i] = c.code.toByte() }
+            val payload = ByteArray(6)
+            payload[0] = CMD_AUTH
+            pinBytes.copyInto(payload, 1)
+            return buildPacket(TYPE_CMD, payload)
+        } finally {
+            pinChars.fill('\u0000')
+        }
     }
 
     /**
      * Encode change-PIN command (must be authenticated first).
+     *
+     * Accepts CharArray (not String) so the caller can zero sensitive data.
+     * The newPinChars array is zeroed after encoding.
      */
-    fun encodeCmdChangePin(newPin: String): ByteArray {
-        val pinBytes = ByteArray(5)
-        newPin.take(4).forEachIndexed { i, c -> pinBytes[i] = c.code.toByte() }
-        val payload = ByteArray(6)
-        payload[0] = CMD_CHANGE_PIN
-        pinBytes.copyInto(payload, 1)
-        return buildPacket(TYPE_CMD, payload)
+    fun encodeCmdChangePin(newPinChars: CharArray): ByteArray {
+        try {
+            val pinBytes = ByteArray(5)
+            newPinChars.take(4).forEachIndexed { i, c -> pinBytes[i] = c.code.toByte() }
+            val payload = ByteArray(6)
+            payload[0] = CMD_CHANGE_PIN
+            pinBytes.copyInto(payload, 1)
+            return buildPacket(TYPE_CMD, payload)
+        } finally {
+            newPinChars.fill('\u0000')
+        }
     }
 
     /**
@@ -560,30 +574,33 @@ object BleProtocol {
      * @return Pair(packet, remainingBytes) or null if incomplete.
      */
     fun extractPacket(buffer: ByteArray): Pair<ParsedPacket, ByteArray>? {
-        // Find SYNC byte
-        val syncIndex = buffer.indexOf(SYNC_BYTE)
-        if (syncIndex < 0) return null
+        var data = buffer
 
-        val data = if (syncIndex > 0) buffer.copyOfRange(syncIndex, buffer.size) else buffer
-        if (data.size < HEADER_SIZE + CRC_SIZE) return null
+        // Iterative search: skip invalid SYNC bytes without recursion
+        while (true) {
+            val syncIndex = data.indexOf(SYNC_BYTE)
+            if (syncIndex < 0) return null
 
-        val type = data[1]
-        val len = data[2].toInt() and 0xFF
-        val totalSize = HEADER_SIZE + len + CRC_SIZE
+            if (syncIndex > 0) data = data.copyOfRange(syncIndex, data.size)
+            if (data.size < HEADER_SIZE + CRC_SIZE) return null
 
-        if (data.size < totalSize) return null
+            val len = data[2].toInt() and 0xFF
+            val totalSize = HEADER_SIZE + len + CRC_SIZE
 
-        val packet = data.copyOfRange(0, totalSize)
-        val remaining = data.copyOfRange(totalSize, data.size)
+            if (data.size < totalSize) return null
 
-        if (!validatePacket(packet)) {
-            // Skip this SYNC and try next one
-            val nextBuffer = data.copyOfRange(1, data.size)
-            return extractPacket(nextBuffer)
+            val packet = data.copyOfRange(0, totalSize)
+
+            if (!validatePacket(packet)) {
+                // Skip this SYNC and try next one (iteratively, not recursively)
+                data = data.copyOfRange(1, data.size)
+                continue
+            }
+
+            val remaining = data.copyOfRange(totalSize, data.size)
+            val payload = packet.copyOfRange(HEADER_SIZE, HEADER_SIZE + len)
+            return Pair(ParsedPacket(type = data[1], payload = payload), remaining)
         }
-
-        val payload = packet.copyOfRange(HEADER_SIZE, HEADER_SIZE + len)
-        return Pair(ParsedPacket(type, payload), remaining)
     }
 }
 
